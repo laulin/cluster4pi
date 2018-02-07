@@ -1,0 +1,110 @@
+---
+- hosts: cluster-router
+  remote_user: pi
+  tasks:
+
+  - name: Update and upgrade apt packages
+    become: true
+    apt:
+      update_cache: yes
+      cache_valid_time: 86400 #One day
+
+  - name: Install vim
+    apt:
+      name: vim
+      state: present
+    become: yes
+
+  - name: Install htop
+    apt:
+      name: htop
+      state: present
+    become: yes
+
+  - name: Install isc-dhcp-server
+    apt:
+      name: isc-dhcp-server
+      state: present
+    become: yes
+
+  - name: set dhcp server on eth1
+    lineinfile:
+      dest: /etc/default/isc-dhcp-server
+      regexp: '^\s*INTERFACESv4.*$'
+      line: 'INTERFACESv4="eth1"'
+    become: yes
+
+  - name: set dhcp configuration
+    become: yes
+    copy:
+      src: router/etc/dhcp/dhcpd.conf
+      dest: /etc/dhcp/dhcpd.conf
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: set network/interface
+    become: yes
+    copy:
+      src: router/etc/network/interfaces
+      dest: /etc/network/interfaces
+      owner: root
+      group: root
+      mode: 0644
+  
+  - name: Remove  dhcpcd5
+    apt:
+      name: dhcpcd5
+      state: absent
+    become: yes
+
+  - name: enable ipforward (persistent)
+    lineinfile:
+      dest: /etc/sysctl.conf
+      regexp: '^#\s*net.ipv4.ip_forward.*$'
+      line: 'net.ipv4.ip_forward=1'
+    become: yes
+
+  - name: enable ipforward (now, no reboot needed !)
+    shell: 'sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"'
+    become: yes
+
+  - name: clear iptable
+    shell: iptables -F
+    become: yes
+
+  - name: MASQUERADE
+    shell: iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+    become: yes
+  
+  - name: forward eth0 -> eth1
+    shell: iptables -A FORWARD -i eth0 -o eth1 -m state --state RELATED,ESTABLISHED -j ACCEPT
+    become: yes
+
+  - name: forward eth0 <- eth1
+    shell: iptables -A FORWARD -i eth1 -o eth0 -j ACCEPT
+    become: yes
+
+  - name: Install iptables-persistent
+    become: yes
+    apt:
+      name: iptables-persistent
+      state: present
+      force: yes
+
+  - name: change hostname in /etc/hosts
+    lineinfile:
+      dest: /etc/hosts
+      regexp: '^127.0.1.1\s*raspberrypi.*$'
+      line: '127.0.1.1       cluster-router'
+    become: yes
+
+  - name: change hostname in /etc/hostname
+    lineinfile:
+      dest: /etc/hosts
+      regexp: '^raspberrypi$'
+      line: 'cluster-router'
+    become: yes
+  
+
+  

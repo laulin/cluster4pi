@@ -1,0 +1,53 @@
+---
+- hosts: cluster-node
+  remote_user: pi
+  tasks:
+
+  - name: Update and upgrade apt packages
+    become: true
+    apt:
+      update_cache: yes
+      cache_valid_time: 86400 #One day
+
+  - name: Install vim
+    apt:
+      name: vim
+      state: present
+    become: yes
+
+  - name: Install htop
+    apt:
+      name: htop
+      state: present
+    become: yes
+
+  - name: Install curl
+    apt:
+      name: curl
+      state: present
+    become: yes
+
+  - name: change hostname in /etc/hosts
+    lineinfile:
+      dest: /etc/hosts
+      regexp: '^127.0.1.1\s*\w+'
+      line: '127.0.1.1       {{name}}'
+    become: yes
+
+  - name: change hostname in /etc/hostname
+    shell: "echo -n '{{name}}' > /etc/hostname"
+    become: yes
+
+  - name: get docker script
+    shell: curl -fsSL get.docker.com -o get-docker.sh
+
+  - name: install docker 
+    shell: sh get-docker.sh
+    become: yes
+
+  - name: make pi user of docker
+    shell: usermod -aG docker pi
+    become: yes
+  
+
+  
